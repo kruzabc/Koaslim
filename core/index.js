@@ -4,14 +4,21 @@ let request = require('./request');
 let response = require('./response');
 let EventEmitter = require('events');
 
-class Koas extends EventEmitter {
+class Koaslim extends EventEmitter {
     constructor(props) {
         super();
         this.middlewares = [];
     }
 
+    set keys(data){
+        // todo like koa keys
+    }
+
     use(middleware){
+        if(typeof middleware !== 'function')
+            throw Error('middleware must be Function type');
         this.middlewares.push(middleware);
+        return this;
     }
 
     compose() {
@@ -36,26 +43,29 @@ class Koas extends EventEmitter {
         };
     }
 
-    listen(port){
-        // 创建一个服务
+    listen(...args){
         let server = http.createServer((req, res) => {
-            let ctx = this.createContext(req, res); // 生成ctx
+            let ctx = this.createContext(req, res);
             this.compose()(ctx).then(() => {
                 this.responseBody(ctx)
             }).catch((err) => {
                 this.onerror(err, ctx)
             });
         });
-        server.listen(port);
-        console.log('服务已启动，http://localhost:/' + port);
+        return server.listen(...args);
     }
 
     createContext(req, res){
         let ctx = Object.create(context);
+        ctx.app = req.app = res.app = this;
         ctx.request = Object.create(request);
         ctx.response = Object.create(response);
+        ctx.request.ctx = ctx.response.ctx = ctx;
         ctx.req = ctx.request.req = req;
         ctx.res = ctx.response.res = res;
+
+        ctx.originalUrl = req.originalUrl = req.url;
+        ctx.state = {};
         return ctx;
     }
 
@@ -81,6 +91,10 @@ class Koas extends EventEmitter {
         ctx.res.end(msg);
         this.emit('error', err);
     }
+
+    on(errType, fn){
+
+    }
 }
 
-module.exports = Koas;
+module.exports = Koaslim;
